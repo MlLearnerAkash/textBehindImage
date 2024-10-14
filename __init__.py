@@ -1,0 +1,1 @@
+from .gsam import GroundedSAM2Processor
