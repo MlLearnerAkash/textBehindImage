@@ -170,6 +170,7 @@
 
 ###########################################################################################################################################
 # grounded_sam2/processor.py
+#NOTE: GSAM+ text behind
 import os
 import cv2
 import json
@@ -296,52 +297,120 @@ class GroundedSAM2Processor:
         # Convert the result back to PIL image
         final_image = Image.fromarray(image_np.astype(np.uint8))
         return final_image
-# script.py
-from gsam import GroundedSAM2Processor
-# from detectron2.engine import DefaultPredictor
-# from detectron2.config import get_cfg
-# from detectron2 import model_zoo
-import cv2
+
+
+
+# # script.py
+# from gsam import GroundedSAM2Processor
+# import cv2
+# from PIL import Image
+
+# image_path = "/root/ws/image2txt/manOnMoon.jpeg"
+# # Example usage of GroundedSAM2Processor
+# processor = GroundedSAM2Processor(
+#     text_prompt="man.",
+#     img_path=image_path,
+#     sam2_checkpoint="./checkpoints/sam2.1_hiera_large.pt",
+#     sam2_model_config="configs/sam2.1/sam2.1_hiera_l.yaml",
+#     grounding_dino_config="grounding_dino/groundingdino/config/GroundingDINO_SwinT_OGC.py",
+#     grounding_dino_checkpoint="gdino_checkpoints/groundingdino_swint_ogc.pth"
+# )
+
+# # Load models
+# processor.load_models()
+
+# # Run prediction and get masks
+# masks, labels, confidences, input_boxes = processor.predict()
+# print(masks.shape)
+
+# # Convert mask to grayscale format
+# mask = (masks * 255).astype(np.uint8)
+# mask = np.moveaxis(mask, 0, -1)[:, :, 0]
+# print(mask.shape)
+# mask_image = Image.fromarray(mask).convert("L")
+
+# # Open input image
+# input_image = Image.open(image_path).convert("RGB")
+
+# # Add text behind the subject using the GroundedSAM2Processor method
+# final_image = processor.add_text_behind_subject(
+#     image=input_image,
+#     mask=mask_image,
+#     text="A small Step",
+#     font_path="/root/ws/image2txt/Arial.ttf",
+#     font_size=25,
+#     text_color=(0, 255, 255),  # Cyan text
+#     shadow_color=(150, 0, 0),  # Black shadow
+#     shadow_offset=(3, 3)
+# )
+
+# # Save the final image with the text behind the subject
+# final_image.save("final_image_with_text_behind_subject.png")
+
+#$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$------------------------------------------$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+import os
+import gradio as gr
 from PIL import Image
+# from gsam import GroundedSAM2Processor
+import numpy as np
 
-# Example usage of GroundedSAM2Processor
-processor = GroundedSAM2Processor(
-    text_prompt="man.",
-    img_path="/root/ws/image2txt/manOnMoon.jpeg",
-    sam2_checkpoint="./checkpoints/sam2.1_hiera_large.pt",
-    sam2_model_config="configs/sam2.1/sam2.1_hiera_l.yaml",
-    grounding_dino_config="grounding_dino/groundingdino/config/GroundingDINO_SwinT_OGC.py",
-    grounding_dino_checkpoint="gdino_checkpoints/groundingdino_swint_ogc.pth"
+# Gradio function to process the image and text prompt
+def process_image(image, text_prompt, target_text):
+    image_path = "input_image.jpg"
+    image.save(image_path)
+
+    # Instantiate the processor with the necessary configurations
+    processor = GroundedSAM2Processor(
+        text_prompt=text_prompt,
+        img_path=image_path,
+        sam2_checkpoint="./checkpoints/sam2.1_hiera_large.pt",
+        sam2_model_config="configs/sam2.1/sam2.1_hiera_l.yaml",
+        grounding_dino_config="grounding_dino/groundingdino/config/GroundingDINO_SwinT_OGC.py",
+        grounding_dino_checkpoint="gdino_checkpoints/groundingdino_swint_ogc.pth"
+    )
+
+    # Load models
+    processor.load_models()
+
+    # Run prediction to get masks
+    masks, labels, confidences, input_boxes = processor.predict()
+
+    # Convert mask to grayscale format
+    mask = (masks * 255).astype(np.uint8)
+    mask = np.moveaxis(mask, 0, -1)[:, :, 0]
+    mask_image = Image.fromarray(mask).convert("L")
+
+    # Add text behind the subject
+    final_image = processor.add_text_behind_subject(
+        image=Image.open(image_path).convert("RGB"),
+        mask=mask_image,
+        text=target_text,
+        font_path="/root/ws/image2txt/Arial.ttf",  # Adjust the font path
+        font_size=25,
+        text_color=(0, 255, 255),  # Cyan text
+        shadow_color=(150, 0, 0),  # Shadow color
+        shadow_offset=(3, 3)
+    )
+
+    # Save and return the final image
+    final_image_path = "final_image_with_text_behind_subject.png"
+    final_image.save(final_image_path)
+    
+    return final_image_path
+
+
+# Create Gradio interface
+interface = gr.Interface(
+    fn=process_image,
+    inputs=[
+        gr.Image(type="pil", label="Upload Image"),
+        gr.Textbox(label="Text Prompt for Object Detection"),
+        gr.Textbox(label="Text to Add Behind Subject")
+    ],
+    outputs=gr.Image(type="filepath", label="Final Image with Text Behind Subject"),
+    title="GroundedSAM2 Text Behind Subject"
 )
 
-# Load models
-processor.load_models()
-
-# Run prediction and get masks
-masks, labels, confidences, input_boxes = processor.predict()
-print(masks.shape)
-
-# Convert mask to grayscale format
-mask = (masks * 255).astype(np.uint8)
-mask = np.moveaxis(mask, 0, -1)[:, :, 0]
-print(mask.shape)
-mask_image = Image.fromarray(mask).convert("L")
-
-# Open input image
-input_image = Image.open("/root/ws/image2txt/manOnMoon.jpeg").convert("RGB")
-
-# Add text behind the subject using the GroundedSAM2Processor method
-final_image = processor.add_text_behind_subject(
-    image=input_image,
-    mask=mask_image,
-    text="A small Step",
-    font_path="/root/ws/image2txt/Arial.ttf",
-    font_size=25,
-    text_color=(0, 255, 255),  # Cyan text
-    shadow_color=(150, 0, 0),  # Black shadow
-    shadow_offset=(3, 3)
-)
-
-# Save the final image with the text behind the subject
-final_image.save("final_image_with_text_behind_subject.png")
-
+# Launch the app
+interface.launch()
